@@ -65,10 +65,18 @@ filters:
       - 1.0 -> 1.0
 ```
 
+**Important: until you replace the second line, the logged/displayed value
+is NOT amps.** With the 1.0 -> 1.0 placeholder, `calibrate_linear` is an
+identity function, so what you see is the raw RMS *voltage* across the
+burden resistor, just mislabeled with an "A" unit in the log line. Don't
+trust the number as real current until a channel has been calibrated.
+
 To calibrate a channel:
 
 1. Put a **known load** on that breaker (e.g. a 4A heater/lamp) and turn
-   it on.
+   it on. A plug-in power meter (Kill-A-Watt or similar, ~$15-25) is the
+   easiest source of a trustworthy reference current — it reads true RMS
+   amps/watts directly off the appliance, no math needed.
 2. Watch the raw (uncalibrated) reading for that channel in the ESPHome
    logs or the Home Assistant entity.
 3. Replace the second line with `<raw_value> -> <known_amps>`, e.g. if the
@@ -76,6 +84,41 @@ To calibrate a channel:
 4. Repeat per channel — burden resistor tolerance and CT turns ratio vary
    slightly between channels, so each one should be calibrated
    individually for best accuracy.
+
+### Validating a channel with a multimeter
+
+A plain (non-clamp) multimeter can't safely measure line current directly —
+that requires breaking the live circuit to insert an ammeter in series,
+which isn't worth the shock/arc-flash risk on a breaker panel. It's still
+useful for two checks:
+
+- **DC bias sanity check**: with nothing clamped and the CT disconnected,
+  measure DC volts from the ADS1115 input pin to ground. It should read a
+  stable value at (or near) your Vmid bias point (e.g. ~1.65V on a 3.3V
+  reference) with no big swings. A reading stuck at 0V or the rail
+  suggests a bias-network wiring fault, not just an unclamped CT.
+- **AC ripple cross-check**: set the multimeter to AC volts and measure
+  across the burden resistor while the CT is clamped on a live wire. You
+  should see a small AC voltage that rises/falls with load — if it stays
+  flat while the ESPHome reading changes (or vice versa), suspect a bad
+  connection between the CT, burden resistor, and ADS1115 input.
+
+If you have (or can borrow) a **clamp meter**, that's the best validation
+tool: clamp it on the exact same wire as your CT sensor and compare its
+reading directly against the raw ESPHome value — this also gives you the
+known-load numbers needed for step 3 above without plugging in any
+appliance.
+
+### Unused / not-yet-wired channels read a non-zero "current"
+
+If a channel's ADS1115 input pin isn't wired to anything yet (floating),
+it will pick up ambient 50/60Hz noise from the other AC wiring inside the
+panel and settle on some small nonzero RMS value (commonly in the
+0.1-0.5V-equivalent range) — that's expected electrical behavior for an
+open analog input, not a bug. It goes away once a real CT clamp and bias
+network are wired to that input. Until then, either ignore that channel's
+reading or set `disabled_by_default: true` on it so it doesn't clutter
+your Home Assistant dashboard.
 
 ## Safety
 

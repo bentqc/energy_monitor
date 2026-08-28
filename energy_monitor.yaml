@@ -1,0 +1,230 @@
+esphome:
+  name: energy-monitor
+  friendly_name: Energy Monitor
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: arduino
+
+logger:
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+# ---------------------------------------------------------------------------
+# Networking: W5500 Ethernet over SPI. The ethernet component manages its
+# own SPI bus directly via these pins — do NOT also declare a separate
+# top-level `spi:` block, that would double-claim the same GPIOs.
+# TODO verify these GPIOs against your actual wiring before flashing.
+# ---------------------------------------------------------------------------
+ethernet:
+  type: W5500
+  clk_pin: GPIO12
+  mosi_pin: GPIO11
+  miso_pin: GPIO13
+  cs_pin: GPIO10
+  interrupt_pin: GPIO14
+  reset_pin: GPIO21
+
+# If you'd rather use WiFi instead of the W5500, delete the spi:/ethernet:
+# blocks above and use this instead:
+# wifi:
+#   ssid: !secret wifi_ssid
+#   password: !secret wifi_password
+
+# ---------------------------------------------------------------------------
+# I2C bus shared by all 3 ADS1115 boards.
+# TODO verify these GPIOs against your actual wiring before flashing.
+# ---------------------------------------------------------------------------
+i2c:
+  sda: GPIO8
+  scl: GPIO9
+  scan: true
+
+# ---------------------------------------------------------------------------
+# 3x ADS1115, one per 4 CT channels (12 channels available, 10 used).
+# ADDR pin wiring sets the I2C address:
+#   ADDR -> GND  = 0x48
+#   ADDR -> VDD  = 0x49
+#   ADDR -> SDA  = 0x4A
+# continuous_mode is REQUIRED for ct_clamp to work correctly.
+# ---------------------------------------------------------------------------
+ads1115:
+  - address: 0x48
+    id: ads1115_hub_1
+    continuous_mode: true
+  - address: 0x49
+    id: ads1115_hub_2
+    continuous_mode: true
+  - address: 0x4A
+    id: ads1115_hub_3
+    continuous_mode: true
+
+# ---------------------------------------------------------------------------
+# 10 breaker channels. Each channel is one raw ADS1115 voltage sensor
+# (hidden from HA, internal: true) feeding one ct_clamp sensor that does
+# the actual RMS-current calculation and is exposed to Home Assistant.
+#
+# The ct_clamp formula auto-centers on the signal's own mean, so your
+# hardware Vmid bias network does not need to be tuned in software.
+#
+# Rename "Breaker N" below to match your panel, and calibrate each
+# channel with calibrate_linear once you have a known reference load
+# (see README.md for the calibration procedure).
+# ---------------------------------------------------------------------------
+sensor:
+  - platform: ads1115
+    multiplexer: 'A0_GND'
+    gain: 4.096
+    ads1115_id: ads1115_hub_1
+    id: raw_breaker_1
+    internal: true
+  - platform: ct_clamp
+    sensor: raw_breaker_1
+    name: "Breaker 1 Current"
+    update_interval: 60s
+    filters:
+      - calibrate_linear:
+          - 0.0 -> 0.0
+          - 1.0 -> 1.0   # TODO replace with your measured raw -> known-amps pair
+
+  - platform: ads1115
+    multiplexer: 'A1_GND'
+    gain: 4.096
+    ads1115_id: ads1115_hub_1
+    id: raw_breaker_2
+    internal: true
+  - platform: ct_clamp
+    sensor: raw_breaker_2
+    name: "Breaker 2 Current"
+    update_interval: 60s
+    filters:
+      - calibrate_linear:
+          - 0.0 -> 0.0
+          - 1.0 -> 1.0
+
+  - platform: ads1115
+    multiplexer: 'A2_GND'
+    gain: 4.096
+    ads1115_id: ads1115_hub_1
+    id: raw_breaker_3
+    internal: true
+  - platform: ct_clamp
+    sensor: raw_breaker_3
+    name: "Breaker 3 Current"
+    update_interval: 60s
+    filters:
+      - calibrate_linear:
+          - 0.0 -> 0.0
+          - 1.0 -> 1.0
+
+  - platform: ads1115
+    multiplexer: 'A3_GND'
+    gain: 4.096
+    ads1115_id: ads1115_hub_1
+    id: raw_breaker_4
+    internal: true
+  - platform: ct_clamp
+    sensor: raw_breaker_4
+    name: "Breaker 4 Current"
+    update_interval: 60s
+    filters:
+      - calibrate_linear:
+          - 0.0 -> 0.0
+          - 1.0 -> 1.0
+
+  - platform: ads1115
+    multiplexer: 'A0_GND'
+    gain: 4.096
+    ads1115_id: ads1115_hub_2
+    id: raw_breaker_5
+    internal: true
+  - platform: ct_clamp
+    sensor: raw_breaker_5
+    name: "Breaker 5 Current"
+    update_interval: 60s
+    filters:
+      - calibrate_linear:
+          - 0.0 -> 0.0
+          - 1.0 -> 1.0
+
+  - platform: ads1115
+    multiplexer: 'A1_GND'
+    gain: 4.096
+    ads1115_id: ads1115_hub_2
+    id: raw_breaker_6
+    internal: true
+  - platform: ct_clamp
+    sensor: raw_breaker_6
+    name: "Breaker 6 Current"
+    update_interval: 60s
+    filters:
+      - calibrate_linear:
+          - 0.0 -> 0.0
+          - 1.0 -> 1.0
+
+  - platform: ads1115
+    multiplexer: 'A2_GND'
+    gain: 4.096
+    ads1115_id: ads1115_hub_2
+    id: raw_breaker_7
+    internal: true
+  - platform: ct_clamp
+    sensor: raw_breaker_7
+    name: "Breaker 7 Current"
+    update_interval: 60s
+    filters:
+      - calibrate_linear:
+          - 0.0 -> 0.0
+          - 1.0 -> 1.0
+
+  - platform: ads1115
+    multiplexer: 'A3_GND'
+    gain: 4.096
+    ads1115_id: ads1115_hub_2
+    id: raw_breaker_8
+    internal: true
+  - platform: ct_clamp
+    sensor: raw_breaker_8
+    name: "Breaker 8 Current"
+    update_interval: 60s
+    filters:
+      - calibrate_linear:
+          - 0.0 -> 0.0
+          - 1.0 -> 1.0
+
+  - platform: ads1115
+    multiplexer: 'A0_GND'
+    gain: 4.096
+    ads1115_id: ads1115_hub_3
+    id: raw_breaker_9
+    internal: true
+  - platform: ct_clamp
+    sensor: raw_breaker_9
+    name: "Breaker 9 Current"
+    update_interval: 60s
+    filters:
+      - calibrate_linear:
+          - 0.0 -> 0.0
+          - 1.0 -> 1.0
+
+  - platform: ads1115
+    multiplexer: 'A1_GND'
+    gain: 4.096
+    ads1115_id: ads1115_hub_3
+    id: raw_breaker_10
+    internal: true
+  - platform: ct_clamp
+    sensor: raw_breaker_10
+    name: "Breaker 10 Current"
+    update_interval: 60s
+    filters:
+      - calibrate_linear:
+          - 0.0 -> 0.0
+          - 1.0 -> 1.0
